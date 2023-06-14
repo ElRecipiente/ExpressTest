@@ -14,21 +14,12 @@ router.get('/name/:name', async function (req, res, next) {
   res.send(artists);
 });
 
-// ça marche pas
-router.get('/tarace', async (req, res, next) => {
-  const artistId = '648824f677ad3c5eec0ae37c';
-  const artist = await Artist.findOne({ "_id": artistId })
-  const album = artist.albums[0]
-  res.send(album)
-
-})
-
 // alors que ça, ça marche
-router.get('/:id/albums/:n', async (req, res, next) => {
-  const artist = await Artist.findOne({ "_id": req.params.id })
-  const album = artist.albums[req.params.n]
-  res.send(album)
-})
+// router.get('/:id/albums/:n', async (req, res, next) => {
+//   const artist = await Artist.findOne({ "_id": req.params.id })
+//   const album = artist.albums[req.params.n]
+//   res.send(album)
+// }) 
 
 router.get('/:name/albums', async function (req, res, next) {
   const artists = await Artist.find({ "name": req.params.name })
@@ -42,25 +33,21 @@ router.get('/albums/:n', async function (req, res, next) {
   res.send(artists);
 });
 
-// et ça, pas du tout
+// edit : ça marche quand tu lances nodemon, connard
+// attention aux conflits entre les routes !
 router.get('/filter', async function (req, res, next) {
   const years = parseInt(req.query.albumAfter)
-  const artists = await Artist.find({ "albums.year": { "$gte": years } })
+  const country = req.query.country
+  let artists = ''
+
+  if (years) {
+    artists = await Artist.find({ "albums.year": { "$gte": years } })
+  } else if (country) {
+    artists = await Artist.find({ "country": country })
+  }
   res.send(artists);
 });
-// mais peut être une réponse ici : https://stackoverflow.com/questions/18524125/req-query-and-req-param-in-expressjs
-
-router.get('/:nation', async function (req, res, next) {
-  const artists = await Artist.find({ "country": req.params.nation })
-  res.send(artists);
-});
-
-
-router.get('/artists/:id/songs?orderBy=popularity', async function (req, res, next) {
-  const artists = await Artist.findOne({ "_id": req.params.id })
-  const filtered = artists.sort(function (a, b) { a - b })
-  res.send(filtered);
-});
+// un thread intéressant : https://stackoverflow.com/questions/18524125/req-query-and-req-param-in-expressjs
 
 
 // TEST AVEC GPT
@@ -90,5 +77,72 @@ router.get('/:id/songs', async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
+// Merci le chat pour son aide.
+
+//REQUETE POST 1 : un artiste
+router.post('/', async (req, res, next) => {
+  // on récupère
+  const name = req.body.name
+  const country = req.body.country
+  const albums = req.body.albums
+
+  const newArtist = new Artist({
+    name: name,
+    country: country,
+    albums: albums
+  })
+
+  const artist = await newArtist.save();
+  res.json(artist);
+})
+
+//REQUETE POST 2 : un album à un artiste
+router.post('/:id/albums', async (req, res, next) => {
+
+  const id = req.params.id;
+  const { name, year, tracks } = req.body;
+
+  const artist = await Artist.updateOne({ _id: id }, { $push: { albums: { name: name, year: year, tracks: tracks } } });
+
+  res.send(artist);
+
+})
+
+// Une requête qui insert un track by Barman : 
+// router.post("/:id/albums/:albumName/tracks/add", async (req, res, next) => {
+//   const id = req.params.id
+//   const albumName = req.params.albumName
+//   let updatedTracks = await Artist.updateOne({ _id: id, "albums.name": { $eq: albumName } }, {
+//     $push: {
+//       "albums.$.tracks": {
+//         name: req.body.name,
+//         duration: req.body.duration,
+//         nbHits: req.body.nbHits
+//       }
+//     }
+//   })
+
+//   res.send(updatedTracks + "changed ?")
+// })
+
+
+// // Un autre exemple du Chat : Route pour ajouter un nouvel artiste
+// router.post('/artists', async (req, res) => {
+//   try {
+//     // Récupérer les données de l'artiste à partir du corps de la requête
+//     const { name, country, albums } = req.body;
+
+//     // Créer une nouvelle instance de l'artiste avec les données fournies
+//     const newArtist = new Artist({ name, country, albums });
+
+//     // Enregistrer l'artiste dans la base de données
+//     const savedArtist = await newArtist.save();
+
+//     res.json(savedArtist);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Erreur serveur' });
+//   }
+// });
 
 module.exports = router;
